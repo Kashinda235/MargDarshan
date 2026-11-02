@@ -1,0 +1,19 @@
+function result = decision(cfg)
+%DECISION Create an initialised planner-decision contract.
+% Inputs: cfg, defaultConfig output.
+% Outputs: result with selected trajectory, target speed (m/s), safety
+% margin (m), horizon/replan period (s), and mode (1 cruise, 2 cautious,
+% 3 emergency).
+% Example: result = types.decision(defaultConfig());
+
+if nargin < 1
+    cfg = defaultConfig();
+end
+result = struct( ...
+    'selectedTrajectory', types.trajectory(cfg), ...
+    'targetSpeed', 0.0, ...
+    'safetyMargin', 0.0, ...
+    'horizon', cfg.planner.horizon, ...
+    'replanPeriod', cfg.simulation.dt, ...
+    'mode', cfg.decisionModes.cruise);
+end
