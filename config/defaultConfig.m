@@ -103,6 +103,14 @@ cfg.planner = struct( ...
     'samples', 21, ...             % Samples including t = 0.
     'numCandidates', 32, ...       % Maximum trajectory candidates.
     'maxBoundaryVertices', 128);   % Maximum vertices in a pocket boundary.
+cfg.pocket = struct( ...
+    'safetyMarginM', 0.5, ...      % m, additional inflation around ego.
+    'boundaryToleranceM', 0.5, ... % m, polygon simplification tolerance.
+    'smallQualityThreshold', 0.2, ...
+    'stepBudgetMs', 20.0, ...      % ms, safe-pocket computation budget.
+    'demoDurationS', 15.0, ...     % s, duration of each pocket demo.
+    'demoDtS', 0.1, ...            % s, scripted demo update interval.
+    'demoPauseS', 0.01);           % s, animation pause.
 cfg.nav = struct( ...
     'routeSpacing', 2.0, ...       % m between dense-route samples.
     'splineResolution', 0.2, ...   % m, arc-length approximation resolution.

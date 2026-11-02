@@ -10,8 +10,11 @@ Perception simulates noisy camera/lidar/radar measurements, associates and
 tracks detections, and builds an ego-centric grid map; it does not train or
 run real vision models. Stage 3 adds interpretable constant-velocity and
 Boid-inspired multi-hypothesis agent predictions, a predictor dispatch
-interface, and an ego-frame collision-risk map. Learned prediction, planning,
-and vehicle control remain outside the implemented scope.
+interface, and an ego-frame collision-risk map. Stage 4 implements
+time-aware risk fields and connected safe-pocket extraction,
+including pocket boundaries, clearances, quality, and a forward corridor.
+Learned prediction, trajectory generation, and vehicle control remain outside
+the implemented scope.
 
 The world module provides deterministic `village`, `intersection`,
 `highwayMerge`, `market`, and `cattleCrossing` scenarios, scripted/reactive
@@ -31,6 +34,9 @@ and reports mean position error and ID-switch count.
 
 Run `demoPrediction` from MATLAB to replay the intersection scenario, overlay
 constant-velocity and Boid predictions, and report ADE/FDE for both methods.
+
+Run `demoPocket` from MATLAB to animate the safe pocket in `market` and
+`cattleCrossing` for 15 seconds per scenario.
 
 See [AGENTS.md](AGENTS.md) for coordinate-frame, units, MATLAB, and phase
 conventions.

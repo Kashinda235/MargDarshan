@@ -34,6 +34,10 @@ verifyFields(testCase, map, ...
      'obstacleProb','traversability','surfaceCost','timestamp'});
 verifySize(testCase, map.occupancy, [cfg.grid.ny cfg.grid.nx]);
 verifySize(testCase, map.height, [cfg.grid.ny cfg.grid.nx]);
+verifyEqual(testCase, map.originX, ...
+    -((cfg.grid.nx-1)/2)*cfg.grid.resolution);
+verifyEqual(testCase, map.originY, ...
+    -((cfg.grid.ny-1)/2)*cfg.grid.resolution);
 end
 
 function testPredictedAgent(testCase)
@@ -55,11 +59,14 @@ cfg = defaultConfig();
 pocketState = types.pocket(cfg);
 verifyFields(testCase, pocketState, ...
     {'mask','boundary','boundaryCount','area','forwardDepth', ...
-     'lateralLeft','lateralRight','riskThreshold'});
+     'lateralLeft','lateralRight','riskThreshold','quality', ...
+     'isEmpty','isSmall'});
 verifyClass(testCase, pocketState.mask, 'logical');
 verifySize(testCase, pocketState.mask, [cfg.grid.ny cfg.grid.nx]);
 verifySize(testCase, pocketState.boundary, ...
     [cfg.planner.maxBoundaryVertices 2]);
+verifyClass(testCase, pocketState.isEmpty, 'logical');
+verifyClass(testCase, pocketState.isSmall, 'logical');
 end
 
 function testTrajectory(testCase)
