@@ -130,12 +130,114 @@ end
 verifyFalse(testCase, pocketState.isEmpty);
 end
 
+function testFreeRoadSelectsRouteFollowingTargetSpeed(testCase)
+cfg = defaultConfig();
+[gridMap, predictions, ego] = clearInputs(cfg);
+ego.v = 3.0;
+agents = types.agentList(cfg);
+reference = straightReference(45.0);
+[decision, diagnostics] = planLocal(ego, reference, gridMap, ...
+    agents, predictions, [], cfg);
+verifyEqual(testCase, numel(diagnostics.candidates), ...
+    cfg.planner.numCandidates);
+verifyEqual(testCase, decision.candidateCount, ...
+    min(cfg.planner.numCandidates, ...
+    numel(cfg.planner.lateralOffsetsM)* ...
+    numel(cfg.planner.speedFractions)*numel(cfg.planner.offsetTimesS)));
+verifySize(testCase, decision.selectedTrajectory.x, ...
+    [cfg.planner.samples 1]);
+verifyLessThanOrEqual(testCase, ...
+    abs(decision.selectedTrajectory.lateralOffset), cfg.grid.resolution);
+verifyGreaterThan(testCase, decision.targetSpeed, 0.8* ...
+    cfg.adaptive.cruiseTargetSpeedMps);
+verifyEqual(testCase, decision.mode, cfg.decisionModes.cruise);
+verifySize(testCase, diagnostics.costBreakdown, ...
+    [cfg.planner.numCandidates 1]);
+end
+
+function testObstacleAheadCausesBrakingOrLateralShift(testCase)
+cfg = defaultConfig();
+[gridMap, predictions, ego] = clearInputs(cfg);
+ego.v = 2.0;
+column = round((7.0-gridMap.originX)/cfg.grid.resolution)+1;
+centerRow = round((0-gridMap.originY)/cfg.grid.resolution)+1;
+rows = centerRow-2:centerRow+2;
+gridMap.occupancy(rows,column-1:column+1) = 1;
+gridMap.obstacleProb(rows,column-1:column+1) = 1;
+gridMap.traversability(rows,column-1:column+1) = 0;
+agents = types.agentList(cfg);
+[decision, diagnostics] = planLocal(ego, straightReference(45.0), ...
+    gridMap, agents, predictions, [], cfg);
+shifted = abs(decision.selectedTrajectory.lateralOffset) ...
+    > cfg.grid.resolution;
+slowed = decision.targetSpeed < ego.v;
+verifyTrue(testCase, shifted || slowed || decision.fallbackCode > 0);
+verifyGreaterThan(testCase, diagnostics.riskSummary.pocketDepth, 0);
+end
+
+function testNoFeasibleCandidateUsesFallback(testCase)
+cfg = defaultConfig();
+ego = types.egoState();
+ego.v = 2.0;
+candidates = repmat(types.trajectory(cfg), cfg.planner.numCandidates, 1);
+pocketState = types.pocket(cfg);
+[selected, selectedIndex, fallbackCode] = selectTrajectory( ...
+    candidates, 0, straightReference(20.0), ego, pocketState, [], cfg, 1.0);
+verifyEqual(testCase, selectedIndex, 0);
+verifyEqual(testCase, fallbackCode, 3);
+verifySize(testCase, selected.t, [cfg.planner.samples 1]);
+verifyLessThan(testCase, selected.v(end), ego.v);
+end
+
+function testAdaptiveModeTransitionsHaveHysteresis(testCase)
+cfg = defaultConfig();
+summary = struct('agentDensity', 0.012, 'minTTC', 4.5, ...
+    'pocketArea', 40.0, 'pocketDepth', 15.0, ...
+    'meanPredictionUncertainty', 0.3);
+previous = types.decision(cfg);
+previous.mode = cfg.decisionModes.cautious;
+decision = adaptiveConfig(summary, previous, cfg);
+verifyEqual(testCase, decision.mode, cfg.decisionModes.cautious);
+summary.agentDensity = 0.005;
+summary.minTTC = 6.0;
+previous.mode = cfg.decisionModes.cautious;
+decision = adaptiveConfig(summary, previous, cfg);
+verifyEqual(testCase, decision.mode, cfg.decisionModes.cruise);
+summary.minTTC = 2.0;
+previous.mode = cfg.decisionModes.emergency;
+decision = adaptiveConfig(summary, previous, cfg);
+verifyEqual(testCase, decision.mode, cfg.decisionModes.emergency);
+end
+
+function testCandidatePlotShowsPaths(testCase)
+cfg = defaultConfig();
+ego = types.egoState();
+decision = struct('targetSpeed', 2.0, 'horizon', 1.0);
+[candidates, count] = generateCandidates( ...
+    straightReference(20.0), ego, decision, cfg);
+figureHandle = figure('Visible', 'off');
+cleanup = onCleanup(@() closeIfValid(figureHandle));
+axesHandle = axes(figureHandle);
+verifyEqual(testCase, plotCandidates(candidates, count, 0, axesHandle), ...
+    axesHandle);
+verifyGreaterThan(testCase, numel(findall(axesHandle, 'Type', 'line')), 0);
+clear cleanup
+end
+
 function [gridMap, predictions, ego] = clearInputs(cfg)
 gridMap = types.gridMap(cfg);
 gridMap.traversability(:) = 1;
 predictions = struct('count', 0, ...
     'agents', repmat(types.predictedAgent(cfg), 1, cfg.maxAgents));
 ego = types.egoState();
+end
+
+function reference = straightReference(lengthM)
+reference = struct( ...
+    'x', (0:2:lengthM)', ...
+    'y', zeros(length((0:2:lengthM)'), 1), ...
+    'heading', zeros(length((0:2:lengthM)'), 1), ...
+    'curvature', zeros(length((0:2:lengthM)'), 1));
 end
 
 function verifyConnected(testCase, mask)

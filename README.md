@@ -13,8 +13,13 @@ Boid-inspired multi-hypothesis agent predictions, a predictor dispatch
 interface, and an ego-frame collision-risk map. Stage 4 implements
 time-aware risk fields and connected safe-pocket extraction,
 including pocket boundaries, clearances, quality, and a forward corridor.
-Learned prediction, trajectory generation, and vehicle control remain outside
-the implemented scope.
+The local planner samples fixed-capacity Frenet-like trajectories, checks
+their kinematic and pocket feasibility, scores static and predicted-agent
+risk, and selects a trajectory using an adaptive cruise/cautious/emergency
+policy with hysteresis. Run `demoPlanner` to compare candidate paths and the
+selected trajectory at frozen snapshots of the village and intersection
+scenarios. Vehicle dynamics and the simulation integration loop remain
+outside the local planner.
 
 The world module provides deterministic `village`, `intersection`,
 `highwayMerge`, `market`, and `cattleCrossing` scenarios, scripted/reactive
