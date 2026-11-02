@@ -50,7 +50,9 @@ cfg.riskThreshold = 0.1;           % Maximum accepted collision probability.
 
 cfg.vehicle = struct( ...
     'wheelbase', 2.7, ...          % m.
-    'maxSteer', 0.55, ...          % rad.
+    'length', 4.5, ...             % m.
+    'width', 1.9, ...               % m.
+    'maxSteer', 0.55, ...           % rad.
     'maxAccel', 2.0, ...           % m/s^2.
     'maxDecel', 5.0, ...           % m/s^2, positive magnitude.
     'maxLateralAccel', 3.0, ...    % m/s^2.
@@ -87,4 +89,71 @@ cfg.decisionModes = struct( ...
 cfg.simulation = struct( ...
     'dt', 0.05, ...                % s.
     'duration', 60.0);             % s.
+cfg.world = struct( ...
+    'maxRoadVertices', 32, ...
+    'maxLaneMarkings', 64, ...
+    'maxStaticObstacles', 16, ...
+    'maxPotholes', 16, ...
+    'maxBehaviorGoalChanges', 8, ...
+    'ttcHorizon', 8.0, ...         % s.
+    'demoDuration', 10.0, ...      % s.
+    'demoDt', 0.1, ...             % s.
+    'demoPause', 0.01, ...         % s.
+    'laneFollowGain', 0.8, ...     % 1/s.
+    'mergeGain', 0.6, ...          % 1/s.
+    'pedestrianGoalRadius', 1.0, ...% m.
+    'pedestrianGoalRadiusMax', 8.0, ...% m.
+    'cattleTriggerDistance', 18.0, ...% m.
+    'motorcycleJitter', 0.35, ...  % m.
+    'autoJitter', 0.2, ...         % m.
+    'laneJitterPeriod', 5.0, ...   % s.
+    'agentDimensions', [ ...
+        4.5 1.9; ...               % car: length, width (m).
+        10.0 2.5; ...              % bus.
+        8.0 2.5; ...               % truck.
+        5.0 2.0; ...               % tractor.
+        3.0 1.5; ...               % auto-rickshaw.
+        2.0 0.8; ...               % motorcycle.
+        1.8 0.6; ...               % bicycle.
+        0.6 0.6; ...               % pedestrian.
+        1.5 0.8; ...               % pushcart.
+        1.8 0.8], ...              % cattle.
+    'maxSpeeds', [ ...
+        25.0 8.0 10.0 5.0 8.0 12.0 6.0 2.0 1.5 3.0], ... % m/s by type.
+    'maxAccelerations', [ ...
+        2.0 1.2 1.0 0.7 1.5 2.5 1.0 0.8 0.5 1.0], ... % m/s^2 by type.
+    'maxDecelerations', [ ...
+        4.0 3.0 3.0 2.0 3.0 4.0 2.0 1.5 1.0 2.0], ... % m/s^2 by type.
+    'speedTargets', struct( ...
+        'villageMotorcycle', 5.0, ... % m/s.
+        'villageAuto', 3.5, ...       % m/s.
+        'villageTractor', 2.5, ...    % m/s.
+        'villagePedestrian', 1.1, ... % m/s.
+        'intersectionCar', 4.0, ...   % m/s.
+        'marketPedestrian', 0.9, ...  % m/s.
+        'highwayCar', 16.0, ...       % m/s.
+        'highwayTruck', 8.0, ...      % m/s.
+        'mergeCar', 11.0, ...         % m/s.
+        'cattle', 0.7), ...           % m/s.
+    'obstacleKinds', struct( ...
+        'parkedVehicle', 1, ...
+        'blockage', 2));
+cfg.world.behaviorModels = struct( ...
+    'stationary', 0, ...
+    'laneFollow', 1, ...
+    'straight', 2, ...
+    'pedestrian', 3, ...
+    'cattleCrossing', 4, ...
+    'merge', 5);
+cfg.world.agentColors = [ ...
+    0.2 0.45 0.85; ...             % car.
+    0.15 0.35 0.65; ...            % bus.
+    0.35 0.35 0.4; ...             % truck.
+    0.55 0.35 0.2; ...             % tractor.
+    0.95 0.55 0.15; ...            % auto-rickshaw.
+    0.85 0.2 0.2; ...              % motorcycle.
+    0.25 0.65 0.3; ...             % bicycle.
+    0.7 0.2 0.65; ...              % pedestrian.
+    0.65 0.45 0.25; ...            % pushcart.
+    0.55 0.4 0.25];                % cattle.
 end

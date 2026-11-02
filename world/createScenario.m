@@ -1,0 +1,259 @@
+function scenario = createScenario(name, cfg, seed)
+%CREATESCENARIO Build a deterministic lightweight ground-truth world.
+% Inputs: name, one of village/intersection/highwayMerge/market/
+% cattleCrossing; cfg, defaultConfig output; seed, nonnegative integer.
+% Outputs: scenario with world-frame ENU geometry, SI dimensions, fixed-size
+% agent/obstacle arrays, ego start pose, and goal [x y] in m.
+% Example: s = createScenario('village', defaultConfig(), 7);
+
+if nargin < 2 || isempty(cfg)
+    cfg = defaultConfig();
+end
+if nargin < 3
+    seed = 1;
+end
+if ~(ischar(name) || (isstring(name) && isscalar(name)))
+    error('createScenario:InvalidName', 'name must be a scenario name.');
+end
+validateattributes(seed, {'numeric'}, ...
+    {'scalar','real','finite','integer','nonnegative'}, mfilename, 'seed');
+name = char(name);
+validNames = {'village','intersection','highwayMerge','market', ...
+    'cattleCrossing'};
+if ~any(strcmp(name, validNames))
+    error('createScenario:UnknownScenario', ...
+        'Unknown scenario "%s". Choose one of: %s.', ...
+        name, strjoin(validNames, ', '));
+end
+
+road = struct( ...
+    'drivableArea', nan(cfg.world.maxRoadVertices, 2), ...
+    'drivableCount', 0, ...
+    'boundaries', nan(cfg.world.maxRoadVertices, 2), ...
+    'boundaryCount', 0, ...
+    'laneMarkings', nan(cfg.world.maxLaneMarkings, 4), ...
+    'laneMarkingCount', 0);
+obstacleTemplate = struct( ...
+    'id', 0, 'kind', cfg.world.obstacleKinds.parkedVehicle, ...
+    'type', cfg.agentTypes.car, 'x', 0.0, 'y', 0.0, ...
+    'yaw', 0.0, 'length', 0.0, 'width', 0.0, 'surfaceCost', 0.0);
+potholeTemplate = struct('x', 0.0, 'y', 0.0, 'radius', 0.0, 'cost', 0.0);
+behaviorTemplate = struct( ...
+    'model', cfg.world.behaviorModels.stationary, ...
+    'targetX', 0.0, 'targetY', 0.0, 'speed', 0.0, 'laneY', 0.0, ...
+    'jitter', 0.0, 'phase', 0.0, 'triggerDistance', 0.0, ...
+    'triggered', false, 'crossingDirection', 0.0, 'mergeY', 0.0, ...
+    'goalChanges', 0, 'direction', 1.0);
+scenario = struct( ...
+    'name', name, ...
+    'seed', double(seed), ...
+    'time', 0.0, ...
+    'stepIndex', 0, ...
+    'road', road, ...
+    'obstacles', struct('count', 0, ...
+        'items', repmat(obstacleTemplate, 1, cfg.world.maxStaticObstacles)), ...
+    'potholes', struct('count', 0, ...
+        'items', repmat(potholeTemplate, 1, cfg.world.maxPotholes)), ...
+    'egoStart', types.egoState(), ...
+    'goal', [0.0 0.0], ...
+    'agents', types.agentList(cfg), ...
+    'behaviors', repmat(behaviorTemplate, 1, cfg.maxAgents));
+
+switch name
+    case 'village'
+        poly = [-50 -3.5; 50 -3.5; 50 3.5; -50 3.5];
+        scenario = setRoad(scenario, poly);
+        scenario.egoStart.x = -35;
+        scenario.goal = [35 0];
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.motorcycle, ...
+            -12, 0.5, 0, cfg.world.speedTargets.villageMotorcycle, ...
+            cfg.world.behaviorModels.laneFollow, 0.5, ...
+            cfg.world.motorcycleJitter, 0.2, 0);
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.autoRickshaw, ...
+            7, -0.5, pi, cfg.world.speedTargets.villageAuto, ...
+            cfg.world.behaviorModels.laneFollow, -0.5, ...
+            cfg.world.autoJitter, 1.1, 0);
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.tractor, ...
+            25, 0, pi, cfg.world.speedTargets.villageTractor, ...
+            cfg.world.behaviorModels.straight, 0, 0, 0, 0);
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.pedestrian, ...
+            -2, 4.5, 0, cfg.world.speedTargets.villagePedestrian, ...
+            cfg.world.behaviorModels.pedestrian, 0, 0, 0, 0);
+        scenario = addObstacle(scenario, cfg, cfg.agentTypes.car, ...
+            14, 4.4, 0, 0, cfg.world.obstacleKinds.parkedVehicle);
+        scenario = addPothole(scenario, cfg, 2, -1.7, 0.9, 0.8);
+        scenario = addPothole(scenario, cfg, -18, 1.8, 0.7, 0.65);
+
+    case 'intersection'
+        poly = [-45 -3.5; -3.5 -3.5; -3.5 -40; 3.5 -40; ...
+            3.5 -3.5; 45 -3.5; 45 3.5; 3.5 3.5; ...
+            3.5 40; -3.5 40; -3.5 3.5; -45 3.5];
+        scenario = setRoad(scenario, poly);
+        scenario = addLane(scenario, [-45 0  -3.5 0]);
+        scenario = addLane(scenario, [3.5 0  45 0]);
+        scenario = addLane(scenario, [0 -40  0 -3.5]);
+        scenario = addLane(scenario, [0 3.5  0 40]);
+        scenario.egoStart.x = -30;
+        scenario.goal = [30 0];
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.car, ...
+            0, -18, pi/2, cfg.world.speedTargets.intersectionCar, ...
+            cfg.world.behaviorModels.straight, 0, 0, 0, 0);
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.motorcycle, ...
+            -7, 2, 0, cfg.world.speedTargets.villageMotorcycle, ...
+            cfg.world.behaviorModels.laneFollow, 2, ...
+            cfg.world.motorcycleJitter, 0.8, 0);
+        scenario = addObstacle(scenario, cfg, cfg.agentTypes.car, ...
+            8, 5.2, 0, 0, cfg.world.obstacleKinds.parkedVehicle);
+        scenario = addPothole(scenario, cfg, 12, 1.5, 0.7, 0.75);
+
+    case 'highwayMerge'
+        poly = [-50 -5; 10 -5; 22 -10; 50 -10; ...
+            50 5; -50 5];
+        scenario = setRoad(scenario, poly);
+        scenario = addLane(scenario, [-50 0  50 0]);
+        scenario = addLane(scenario, [15 -5.2  23 -7.5]);
+        scenario.egoStart.x = -35;
+        scenario.goal = [40 0];
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.truck, ...
+            -5, 2.5, 0, cfg.world.speedTargets.highwayTruck, ...
+            cfg.world.behaviorModels.straight, 0, 0, 0, 0);
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.car, ...
+            15, -7.2, 0, cfg.world.speedTargets.mergeCar, ...
+            cfg.world.behaviorModels.merge, 0, 0, 0, 1.0);
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.car, ...
+            25, -8.0, 0, cfg.world.speedTargets.highwayCar, ...
+            cfg.world.behaviorModels.merge, 0, 0, 0, 1.5);
+        scenario = addObstacle(scenario, cfg, cfg.agentTypes.truck, ...
+            37, 7.0, 0, 0.2, cfg.world.obstacleKinds.blockage);
+        scenario = addPothole(scenario, cfg, -2, -2.0, 1.0, 0.35);
+
+    case 'market'
+        poly = [-32 -6; 32 -6; 32 6; -32 6];
+        scenario = setRoad(scenario, poly);
+        scenario.egoStart.x = -25;
+        scenario.goal = [25 0];
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.pedestrian, ...
+            -5, 1.5, 0, cfg.world.speedTargets.marketPedestrian, ...
+            cfg.world.behaviorModels.pedestrian, 0, 0, 0, 0);
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.pedestrian, ...
+            8, -2.0, pi, cfg.world.speedTargets.marketPedestrian, ...
+            cfg.world.behaviorModels.pedestrian, 0, 0, 0, 0);
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.pushcart, ...
+            18, 3.8, pi, 0.7, cfg.world.behaviorModels.straight, ...
+            0, 0, 0, 0);
+        scenario = addObstacle(scenario, cfg, cfg.agentTypes.autoRickshaw, ...
+            2, 6.8, 0, 0, cfg.world.obstacleKinds.parkedVehicle);
+        scenario = addObstacle(scenario, cfg, cfg.agentTypes.car, ...
+            22, -7.0, 0, 0, cfg.world.obstacleKinds.parkedVehicle);
+        scenario = addPothole(scenario, cfg, -12, -3.1, 0.9, 0.8);
+        scenario = addPothole(scenario, cfg, 10, 2.9, 0.7, 0.6);
+
+    case 'cattleCrossing'
+        poly = [-45 -3.5; 45 -3.5; 45 3.5; -45 3.5];
+        scenario = setRoad(scenario, poly);
+        scenario = addLane(scenario, [-45 0  45 0]);
+        scenario.egoStart.x = -10;
+        scenario.goal = [35 0];
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.cattle, ...
+            5, -7.0, pi/2, cfg.world.speedTargets.cattle, ...
+            cfg.world.behaviorModels.cattleCrossing, 5, 0, 0, 0);
+        scenario.behaviors(1).triggerDistance = ...
+            cfg.world.cattleTriggerDistance;
+        scenario.behaviors(1).crossingDirection = 1;
+        scenario = addAgent(scenario, cfg, cfg.agentTypes.motorcycle, ...
+            24, 1.2, pi, cfg.world.speedTargets.villageMotorcycle, ...
+            cfg.world.behaviorModels.laneFollow, 1.2, ...
+            cfg.world.motorcycleJitter, 2.2, 0);
+        scenario = addObstacle(scenario, cfg, cfg.agentTypes.tractor, ...
+            -25, 5.8, 0, 0.2, cfg.world.obstacleKinds.blockage);
+        scenario = addPothole(scenario, cfg, 14, -1.8, 0.8, 0.7);
+end
+end
+
+function scenario = setRoad(scenario, polygon)
+count = size(polygon, 1);
+scenario.road.drivableArea(1:count, :) = polygon;
+scenario.road.drivableCount = count;
+scenario.road.boundaries(1:count, :) = polygon;
+scenario.road.boundaryCount = count;
+end
+
+function scenario = addLane(scenario, segment)
+count = scenario.road.laneMarkingCount + 1;
+scenario.road.laneMarkings(count, :) = segment;
+scenario.road.laneMarkingCount = count;
+end
+
+function scenario = addAgent(scenario, cfg, type, x, y, yaw, speed, ...
+        model, laneY, jitter, phase, mergeY)
+count = scenario.agents.count + 1;
+if count > cfg.maxAgents
+    error('createScenario:TooManyAgents', ...
+        'Scenario exceeds cfg.maxAgents.');
+end
+agent = types.agentState(cfg);
+agent.id = count;
+agent.type = type;
+agent.x = x;
+agent.y = y;
+agent.yaw = yaw;
+if model ~= cfg.world.behaviorModels.cattleCrossing
+    agent.vx = speed * cos(yaw);
+    agent.vy = speed * sin(yaw);
+end
+agent.length = cfg.world.agentDimensions(type, 1);
+agent.width = cfg.world.agentDimensions(type, 2);
+agent.confidence = 1.0;
+agent.valid = true;
+scenario.agents.agents(count) = agent;
+behavior = scenario.behaviors(count);
+behavior.model = model;
+behavior.speed = speed;
+behavior.laneY = laneY;
+behavior.jitter = jitter;
+behavior.phase = phase;
+behavior.mergeY = mergeY;
+behavior.targetX = x;
+behavior.targetY = y;
+if abs(cos(yaw)) > eps
+    behavior.direction = sign(cos(yaw));
+end
+scenario.behaviors(count) = behavior;
+scenario.agents.count = count;
+end
+
+function scenario = addObstacle(scenario, cfg, type, x, y, yaw, ...
+        surfaceCost, kind)
+count = scenario.obstacles.count + 1;
+if count > cfg.world.maxStaticObstacles
+    error('createScenario:TooManyObstacles', ...
+        'Scenario exceeds cfg.world.maxStaticObstacles.');
+end
+item = scenario.obstacles.items(count);
+item.id = count;
+item.kind = kind;
+item.type = type;
+item.x = x;
+item.y = y;
+item.yaw = yaw;
+item.length = cfg.world.agentDimensions(type, 1);
+item.width = cfg.world.agentDimensions(type, 2);
+item.surfaceCost = surfaceCost;
+scenario.obstacles.items(count) = item;
+scenario.obstacles.count = count;
+end
+
+function scenario = addPothole(scenario, cfg, x, y, radius, cost)
+count = scenario.potholes.count + 1;
+if count > cfg.world.maxPotholes
+    error('createScenario:TooManyPotholes', ...
+        'Scenario exceeds cfg.world.maxPotholes.');
+end
+item = scenario.potholes.items(count);
+item.x = x;
+item.y = y;
+item.radius = radius;
+item.cost = cost;
+scenario.potholes.items(count) = item;
+scenario.potholes.count = count;
+end
