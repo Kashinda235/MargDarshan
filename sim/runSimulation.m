@@ -183,6 +183,7 @@ for step = 1:maximumSteps
         log.minimumTTCS(sampleCount) = min(ttcs);
     end
     log.decisionMode(sampleCount) = decision.mode;
+    log.cost(sampleCount) = decision.selectedTrajectory.cost;
     log.fallbackCode(sampleCount) = decision.fallbackCode;
     log.replanned(sampleCount) = isReplan;
     log.emergencyBrake(sampleCount) = ...
@@ -282,6 +283,7 @@ log.collision = false(1,sampleCapacity);
 log.minimumClearanceM = inf(1,sampleCapacity);
 log.minimumTTCS = inf(1,sampleCapacity);
 log.decisionMode = zeros(1,sampleCapacity);
+log.cost = zeros(1,sampleCapacity);
 log.fallbackCode = zeros(1,sampleCapacity);
 log.replanned = false(1,sampleCapacity);
 log.emergencyBrake = false(1,sampleCapacity);
@@ -384,7 +386,7 @@ for k = 1:numel(pocketFields)
     log.pocket.(pocketFields{k}) = log.pocket.(pocketFields{k})(:,1:sampleCount);
 end
 sampleFields = {'collision','minimumClearanceM','minimumTTCS', ...
-    'decisionMode','fallbackCode','replanned','emergencyBrake', ...
+    'decisionMode','cost','fallbackCode','replanned','emergencyBrake', ...
     'emergencyBrakeEvent'};
 for k = 1:numel(sampleFields)
     log.(sampleFields{k}) = log.(sampleFields{k})(1:sampleCount);

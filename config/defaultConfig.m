@@ -190,6 +190,9 @@ cfg.controller = struct( ...
     'headingKp', 1.0);
 
 cfg.simDt = 0.05;                  % s, vehicle simulation step.
+cfg.simulink = struct( ...
+    'plannerSampleTimeS', cfg.planner.dt, ... % s.
+    'parityToleranceM', 0.25);       % m.
 cfg.vehicleDemo = struct( ...
     'durationS', 24.0, ...         % s.
     'speedTimesS', [0 2 6 8 10 12 18 20 24], ... % s.
