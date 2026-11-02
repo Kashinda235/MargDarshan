@@ -1,9 +1,11 @@
 function [selected, selectedIndex, fallbackCode, candidates] = ...
         selectTrajectory(candidates, candidateCount, reference, egoState, ...
-        pocketState, previousDecision, cfg, horizon)
+        pocketState, previousDecision, cfg, horizon, enforcePocket, ...
+        includeTrafficRisk)
 %SELECTTRAJECTORY Pick the least-cost feasible path or a braking fallback.
 % Inputs: candidates, fixed trajectory array; count; ego-local reference;
 % egoState in world ENU; pocketState; previousDecision (optional); cfg.
+% Optional enforcePocket/includeTrafficRisk switches support ablation tests.
 % Outputs: selected trajectory, candidate index (0 for braking fallback),
 % fallbackCode (0 nominal, 1 evasive, 2 comfortable brake, 3 emergency).
 % Example: [path,index,fallback] = selectTrajectory(paths,n,ref,ego,p,prev,cfg);
@@ -13,6 +15,20 @@ if nargin < 7 || isempty(cfg)
 end
 if nargin < 8 || isempty(horizon)
     horizon = cfg.planner.horizon;
+end
+if nargin < 9 || isempty(enforcePocket)
+    enforcePocket = true;
+end
+if nargin < 10 || isempty(includeTrafficRisk)
+    includeTrafficRisk = true;
+end
+if ~(islogical(enforcePocket) && isscalar(enforcePocket))
+    error('selectTrajectory:InvalidPocketOption', ...
+        'enforcePocket must be a logical scalar.');
+end
+if ~(islogical(includeTrafficRisk) && isscalar(includeTrafficRisk))
+    error('selectTrajectory:InvalidTrafficRiskOption', ...
+        'includeTrafficRisk must be a logical scalar.');
 end
 if nargin < 6
     previousDecision = [];
@@ -71,8 +87,12 @@ if evasiveCount > 0
     scores = zeros(evasiveCount, 1);
     for k = 1:evasiveCount
         path = candidates(evasiveIndices(k));
+        trafficRisk = path.costBreakdown.trafficRisk;
+        if ~includeTrafficRisk
+            trafficRisk = 0.0;
+        end
         scores(k) = path.costBreakdown.collisionRisk ...
-            + path.costBreakdown.trafficRisk ...
+            + trafficRisk ...
             + path.cost*eps(max(1, abs(path.cost)));
     end
     [~, best] = min(scores);
@@ -84,7 +104,7 @@ end
 
 selected = brakingTrajectory(reference, egoState, ...
     cfg.planner.comfortableDecelMps2, horizon, cfg);
-if trajectoryInPocket(selected, pocketState, egoState, cfg)
+if ~enforcePocket || trajectoryInPocket(selected, pocketState, egoState, cfg)
     fallbackCode = 2;
 else
     selected = brakingTrajectory(reference, egoState, ...

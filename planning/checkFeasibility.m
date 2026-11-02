@@ -1,15 +1,24 @@
 function [candidates, feasibility] = checkFeasibility( ...
-        candidates, candidateCount, pocketState, egoState, cfg)
+        candidates, candidateCount, pocketState, egoState, cfg, ...
+        enforcePocket)
 %CHECKFEASIBILITY Reject dynamically invalid or out-of-pocket paths.
 % Inputs: candidates, fixed trajectory array in world ENU (m/rad); count;
 % pocketState, ego-local safe mask; egoState, world pose (m/rad); cfg.
 % Outputs: candidates with feasible/rejectionCode set, plus fixed-size
 % metrics. Rejection codes: 1 curvature/steer, 2 lateral accel, 3 accel,
-% 4 jerk, 5 outside pocket.
+% 4 jerk, 5 outside pocket. enforcePocket (optional) disables pocket
+% membership rejection for component-ablation experiments.
 % Example: [paths,checks] = checkFeasibility(paths,n,pocket,ego,cfg);
 
 if nargin < 5 || isempty(cfg)
     cfg = defaultConfig();
+end
+if nargin < 6 || isempty(enforcePocket)
+    enforcePocket = true;
+end
+if ~(islogical(enforcePocket) && isscalar(enforcePocket))
+    error('checkFeasibility:InvalidPocketOption', ...
+        'enforcePocket must be a logical scalar.');
 end
 if ~isstruct(pocketState) || ~isfield(pocketState, 'mask') || ...
         ~isequal(size(pocketState.mask), [cfg.grid.ny cfg.grid.nx])
@@ -83,7 +92,7 @@ for k = 1:candidateCount
     elseif feasibility.maxJerk(k) > cfg.vehicle.maxJerk ...
             + 10*eps(max(1,cfg.vehicle.maxJerk))
         rejectionCode = 4;
-    elseif ~feasibility.inPocket(k)
+    elseif enforcePocket && ~feasibility.inPocket(k)
         rejectionCode = 5;
     end
     feasibility.rejectionCode(k) = rejectionCode;

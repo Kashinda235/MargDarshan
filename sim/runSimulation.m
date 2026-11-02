@@ -2,7 +2,9 @@ function log = runSimulation(scenarioName, cfg, seed, options)
 %RUNSIMULATION Run one fixed-step closed-loop scenario.
 % Inputs: scenarioName, a createScenario name; cfg, defaultConfig output;
 % seed, nonnegative integer; options.planner is 'margdarshan' or 'baseline',
-% options.durationS is seconds, and options.measureTiming is logical.
+% options.durationS is seconds, options.measureTiming is logical,
+% options.initialScenario can provide a randomized scene, and options.ablation
+% enables non-default component switches used by metrics/ablationStudy.
 % Outputs: preallocated-and-trimmed log with SI states, truth agents,
 % decisions, pocket/trajectory samples, collisions, termination, and
 % per-module timing in seconds. Example:
@@ -33,14 +35,29 @@ end
 planner = lower(planner);
 durationS = optionValue(options, 'durationS', cfg.simulation.duration);
 measureTiming = optionValue(options, 'measureTiming', true);
+initialScenario = optionValue(options, 'initialScenario', []);
+ablation = optionValue(options, 'ablation', struct());
 validateattributes(durationS, {'numeric'}, ...
     {'scalar','real','finite','positive'}, mfilename, 'options.durationS');
 if ~(islogical(measureTiming) && isscalar(measureTiming))
     error('runSimulation:InvalidTimingOption', ...
         'options.measureTiming must be a logical scalar.');
 end
+ablation = validateAblation(ablation);
 
-scenario = createScenario(scenarioName, cfg, seed);
+if isempty(initialScenario)
+    scenario = createScenario(scenarioName, cfg, seed);
+else
+    if ~isstruct(initialScenario) || ~isfield(initialScenario, 'name') ...
+            || ~strcmp(char(initialScenario.name), char(scenarioName))
+        error('runSimulation:InvalidInitialScenario', ...
+            'options.initialScenario must be a scenario for scenarioName.');
+    end
+    scenario = initialScenario;
+end
+if ~isempty(ablation.predictionMethod)
+    cfg.prediction.method = ablation.predictionMethod;
+end
 ego = scenario.egoStart;
 route = makeRoute(scenario, cfg);
 maximumSteps = ceil(durationS/cfg.simDt);
@@ -130,7 +147,8 @@ for step = 1:maximumSteps
         timer = tic;
         if strcmp(planner, 'margdarshan')
             [decision, diagnostics] = planLocal(ego, reference, ...
-                gridMap, trackedAgents, predictions, previousDecision, cfg);
+                gridMap, trackedAgents, predictions, previousDecision, cfg, ...
+                ablation);
         else
             [decision, diagnostics] = baselineLaneFollower( ...
                 ego, reference, trackedAgents, cfg);
@@ -407,6 +425,56 @@ if isfield(options, name)
     value = options.(name);
 else
     value = defaultValue;
+end
+end
+
+function ablation = validateAblation(value)
+fields = {'disableAdaptiveConfig','disablePocketGating', ...
+    'disableTrafficRiskCost'};
+if ~isstruct(value) || ~isscalar(value)
+    error('runSimulation:InvalidAblation', ...
+        'options.ablation must be a scalar struct.');
+end
+ablation = struct( ...
+    'disableAdaptiveConfig', false, ...
+    'disablePocketGating', false, ...
+    'disableTrafficRiskCost', false, ...
+    'predictionMethod', '');
+allowedFields = [fields {'predictionMethod'}];
+unknownFields = setdiff(fieldnames(value), allowedFields);
+if ~isempty(unknownFields)
+    error('runSimulation:InvalidAblation', ...
+        'Unknown ablation field "%s".', unknownFields{1});
+end
+if isfield(value, 'disableAdaptiveConfig')
+    ablation.disableAdaptiveConfig = validateAblationFlag( ...
+        value.disableAdaptiveConfig);
+end
+if isfield(value, 'disablePocketGating')
+    ablation.disablePocketGating = validateAblationFlag( ...
+        value.disablePocketGating);
+end
+if isfield(value, 'disableTrafficRiskCost')
+    ablation.disableTrafficRiskCost = validateAblationFlag( ...
+        value.disableTrafficRiskCost);
+end
+if isfield(value, 'predictionMethod')
+    method = value.predictionMethod;
+    if isstring(method) && isscalar(method)
+        method = char(method);
+    end
+    if ~ischar(method) || ~any(strcmpi(method, {'boid','cv'}))
+        error('runSimulation:InvalidAblation', ...
+            'ablation.predictionMethod must be ''boid'' or ''cv''.');
+    end
+    ablation.predictionMethod = lower(method);
+end
+end
+
+function flag = validateAblationFlag(flag)
+if ~(islogical(flag) && isscalar(flag))
+    error('runSimulation:InvalidAblation', ...
+        'Each ablation switch must be a logical scalar.');
 end
 end
 

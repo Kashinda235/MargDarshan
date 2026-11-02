@@ -1,9 +1,10 @@
 function [decision, diagnostics] = planLocal(egoState, reference, gridMap, ...
-        agentList, predictions, previousDecision, cfg)
+        agentList, predictions, previousDecision, cfg, ablation)
 %PLANLOCAL Run adaptive candidate generation, checking, scoring, and selection.
 % Inputs: egoState in world ENU (m/rad, m/s); reference in ego-local
 % x/y (m), heading (rad), curvature (1/m); gridMap; fixed-capacity
-% agentList/predictions; previous decision (optional); cfg.
+% agentList/predictions; previous decision (optional); cfg; optional
+% ablation switches used only by the metrics component study.
 % Outputs: decision with selected world-frame trajectory and mode policy;
 % diagnostics with fixed candidate, feasibility, cost, risk, and pocket data.
 % Example: [d,debug] = planLocal(ego,ref,map,agents,predictions,[],cfg);
@@ -14,6 +15,10 @@ end
 if nargin < 6
     previousDecision = [];
 end
+if nargin < 8 || isempty(ablation)
+    ablation = struct();
+end
+ablation = normalizeAblation(ablation);
 if ~isstruct(agentList) || ~all(isfield(agentList, {'count','agents'})) || ...
         agentList.count < 0 || agentList.count > cfg.maxAgents || ...
         numel(agentList.agents) ~= cfg.maxAgents
@@ -25,7 +30,17 @@ riskField = computeRiskField(gridMap, dynamicRisk, egoState, cfg);
 pocketState = generateSafePocket(riskField, cfg);
 riskSummary = summarizeRisk(egoState, agentList, predictions, ...
     pocketState, cfg);
-adaptiveDecision = adaptiveConfig(riskSummary, previousDecision, cfg);
+if ablation.disableAdaptiveConfig
+    adaptiveDecision = struct( ...
+        'targetSpeed', min(cfg.adaptive.cruiseTargetSpeedMps, ...
+            cfg.nav.localSpeedLimit), ...
+        'safetyMargin', cfg.pocket.safetyMarginM, ...
+        'horizon', cfg.adaptive.cruiseHorizonS, ...
+        'replanPeriod', cfg.adaptive.cruiseReplanPeriodS, ...
+        'mode', cfg.decisionModes.cruise);
+else
+    adaptiveDecision = adaptiveConfig(riskSummary, previousDecision, cfg);
+end
 modeCfg = cfg;
 modeCfg.pocket.safetyMarginM = adaptiveDecision.safetyMargin;
 riskField = computeRiskField(gridMap, dynamicRisk, egoState, modeCfg);
@@ -33,13 +48,18 @@ pocketState = generateSafePocket(riskField, modeCfg);
 [candidates, candidateCount] = generateCandidates( ...
     reference, egoState, adaptiveDecision, cfg);
 [candidates, feasibility] = checkFeasibility( ...
-    candidates, candidateCount, pocketState, egoState, cfg);
+    candidates, candidateCount, pocketState, egoState, cfg, ...
+    ~ablation.disablePocketGating);
+if ablation.disableTrafficRiskCost
+    cfg.planner.trafficWeight = 0.0;
+end
 [candidates, costBreakdown] = scoreTrajectories(candidates, ...
     candidateCount, reference, riskField, predictions, ...
     adaptiveDecision, egoState, cfg);
 [selected, selectedIndex, fallbackCode, candidates] = ...
     selectTrajectory(candidates, candidateCount, reference, egoState, ...
-    pocketState, previousDecision, cfg, adaptiveDecision.horizon);
+    pocketState, previousDecision, cfg, adaptiveDecision.horizon, ...
+    ~ablation.disablePocketGating, ~ablation.disableTrafficRiskCost);
 for k = 1:candidateCount
     costBreakdown(k) = candidates(k).costBreakdown;
 end
@@ -62,6 +82,44 @@ diagnostics = struct( ...
     'riskSummary', riskSummary, ...
     'riskField', riskField, ...
     'pocketState', pocketState);
+end
+
+function ablation = normalizeAblation(value)
+if ~isstruct(value) || ~isscalar(value)
+    error('planLocal:InvalidAblation', ...
+        'ablation must be a scalar struct.');
+end
+names = {'disableAdaptiveConfig','disablePocketGating', ...
+    'disableTrafficRiskCost'};
+allowedNames = [names {'predictionMethod'}];
+unknownNames = setdiff(fieldnames(value), allowedNames);
+if ~isempty(unknownNames)
+    error('planLocal:InvalidAblation', ...
+        'Unknown ablation field "%s".', unknownNames{1});
+end
+ablation = struct( ...
+    'disableAdaptiveConfig', false, ...
+    'disablePocketGating', false, ...
+    'disableTrafficRiskCost', false);
+if isfield(value, 'disableAdaptiveConfig')
+    ablation.disableAdaptiveConfig = validateAblationFlag( ...
+        value.disableAdaptiveConfig);
+end
+if isfield(value, 'disablePocketGating')
+    ablation.disablePocketGating = validateAblationFlag( ...
+        value.disablePocketGating);
+end
+if isfield(value, 'disableTrafficRiskCost')
+    ablation.disableTrafficRiskCost = validateAblationFlag( ...
+        value.disableTrafficRiskCost);
+end
+end
+
+function flag = validateAblationFlag(flag)
+if ~(islogical(flag) && isscalar(flag))
+    error('planLocal:InvalidAblation', ...
+        'Each ablation switch must be a logical scalar.');
+end
 end
 
 function summary = summarizeRisk(egoState, agentList, predictions, ...

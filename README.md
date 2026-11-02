@@ -29,6 +29,12 @@ completion, timing, and motion smoothness. Run `sim/main.m` for the
 five-scenario comparison and a village animation; result tables and video
 are written to `/results`. Use `animateRun` to render another logged run.
 
+Run `runValidationSuite` from MATLAB to evaluate both planners over the five
+scenarios with at least 30 paired randomized seeds, then run
+`summarizeResults` to regenerate the confidence-interval table and PNG/PDF
+figures under `/results`. Run `ablationStudy` separately for the four
+one-at-a-time MargDarshan component comparisons.
+
 The world module provides deterministic `village`, `intersection`,
 `highwayMerge`, `market`, and `cattleCrossing` scenarios, scripted/reactive
 agents, a ground-truth ego-frame grid, collision checks, and plotting. Run
