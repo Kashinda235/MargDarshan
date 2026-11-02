@@ -8,8 +8,10 @@ configuration, shared data contracts, navigation utilities, a lightweight
 MATLAB-native simulation world, and Stage 2 simulated-sensor perception.
 Perception simulates noisy camera/lidar/radar measurements, associates and
 tracks detections, and builds an ego-centric grid map; it does not train or
-run real vision models. Prediction, planning, and vehicle control remain
-outside the implemented scope.
+run real vision models. Stage 3 adds interpretable constant-velocity and
+Boid-inspired multi-hypothesis agent predictions, a predictor dispatch
+interface, and an ego-frame collision-risk map. Learned prediction, planning,
+and vehicle control remain outside the implemented scope.
 
 The world module provides deterministic `village`, `intersection`,
 `highwayMerge`, `market`, and `cattleCrossing` scenarios, scripted/reactive
@@ -26,6 +28,9 @@ matlab -batch "addpath(pwd); startup; results = runtests('tests'); assertSuccess
 Run the Stage 2 market perception demonstration with `demoPerception` from
 MATLAB. It simulates 20 seconds, plots tracked agents against ground truth,
 and reports mean position error and ID-switch count.
+
+Run `demoPrediction` from MATLAB to replay the intersection scenario, overlay
+constant-velocity and Boid predictions, and report ADE/FDE for both methods.
 
 See [AGENTS.md](AGENTS.md) for coordinate-frame, units, MATLAB, and phase
 conventions.

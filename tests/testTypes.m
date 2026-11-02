@@ -40,9 +40,13 @@ function testPredictedAgent(testCase)
 cfg = defaultConfig();
 prediction = types.predictedAgent(cfg);
 verifyFields(testCase, prediction, ...
-    {'id','T','t','x','y','sigma','modeProbability'});
+    {'id','type','length','width','confidence','T','t','x','y','sigma', ...
+     'hypothesisCount','hypothesisX','hypothesisY','hypothesisYaw', ...
+     'hypothesisSigma','modeProbability'});
 verifyEqual(testCase, prediction.T, cfg.prediction.steps);
 verifySize(testCase, prediction.x, [cfg.prediction.steps 1]);
+verifySize(testCase, prediction.hypothesisX, ...
+    [cfg.prediction.steps cfg.prediction.modes]);
 verifySize(testCase, prediction.modeProbability, [1 cfg.prediction.modes]);
 end
 
