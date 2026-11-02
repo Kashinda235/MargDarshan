@@ -21,6 +21,14 @@ selected trajectory at frozen snapshots of the village and intersection
 scenarios. Vehicle dynamics and the simulation integration loop remain
 outside the local planner.
 
+Phase 8 integrates the existing modules in a fixed-step closed loop.
+`runSimulation` supports the MargDarshan planner and a constant-time-gap
+ACC lane-following baseline; both use the same vehicle model, sensors,
+tracking, and collision checks. `computeMetrics` summarizes safety,
+completion, timing, and motion smoothness. Run `sim/main.m` for the
+five-scenario comparison and a village animation; result tables and video
+are written to `/results`. Use `animateRun` to render another logged run.
+
 The world module provides deterministic `village`, `intersection`,
 `highwayMerge`, `market`, and `cattleCrossing` scenarios, scripted/reactive
 agents, a ground-truth ego-frame grid, collision checks, and plotting. Run
