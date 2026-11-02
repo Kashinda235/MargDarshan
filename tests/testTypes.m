@@ -5,7 +5,7 @@ end
 
 function testEgoState(testCase)
 state = types.egoState();
-verifyFields(testCase, state, {'x','y','yaw','v','a','steer','yawRate'});
+verifyFields(testCase, state, {'x','y','yaw','v','vy','a','steer','yawRate'});
 end
 
 function testAgentState(testCase)

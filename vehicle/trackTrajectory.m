@@ -1,0 +1,33 @@
+function [command, controllerState, diagnostics] = ...
+        trackTrajectory(egoState, selectedTrajectory, controllerState, cfg)
+%TRACKTRAJECTORY Compute the steering and acceleration command for a path.
+% Inputs: egoState world ENU (m, rad, m/s); selectedTrajectory world-frame
+% x/y (m), yaw (rad), curvature (1/m), t (s), v (m/s), optional a (m/s^2);
+% controllerState explicit longitudinal memory or []; cfg.
+% Outputs: command with steer (rad), accel (m/s^2), throttle/brake (0..1),
+% updated controllerState, and lateral/longitudinal diagnostics.
+% Example: [u,s] = trackTrajectory(ego,path,[],cfg);
+
+if nargin < 4 || isempty(cfg)
+    cfg = defaultConfig();
+end
+if nargin < 3
+    controllerState = [];
+end
+[steer,lateralInfo] = lateralController(egoState,selectedTrajectory,cfg);
+[accel,controllerState,longitudinalInfo] = longitudinalController( ...
+    egoState,selectedTrajectory,controllerState,cfg);
+command = struct( ...
+    'steer',steer, ...
+    'accel',accel, ...
+    'throttle',longitudinalInfo.throttle, ...
+    'brake',longitudinalInfo.brake, ...
+    'outputMode',cfg.controller.longitudinalOutput);
+if ~any(strcmp(cfg.controller.longitudinalOutput,{'acceleration','pedal'}))
+    error('trackTrajectory:InvalidOutputMode', ...
+        'cfg.controller.longitudinalOutput must be acceleration or pedal.');
+end
+diagnostics = struct( ...
+    'lateral',lateralInfo, ...
+    'longitudinal',longitudinalInfo);
+end

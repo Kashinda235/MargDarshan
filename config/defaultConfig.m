@@ -154,16 +154,49 @@ cfg.vehicle = struct( ...
     'length', 4.5, ...             % m.
     'width', 1.9, ...               % m.
     'maxSteer', 0.55, ...           % rad.
+    'maxSteerRate', 0.6, ...        % rad/s.
     'maxAccel', 2.0, ...           % m/s^2.
     'maxDecel', 5.0, ...           % m/s^2, positive magnitude.
     'maxLateralAccel', 3.0, ...    % m/s^2.
-    'maxJerk', 4.0);               % m/s^3.
+    'maxJerk', 4.0, ...             % m/s^3.
+    'steerLagS', 0.15, ...         % s, first-order steering actuator lag.
+    'accelLagS', 0.25, ...         % s, first-order acceleration actuator lag.
+    'massKg', 1500.0, ...          % kg.
+    'yawInertiaKgM2', 2500.0, ...  % kg m^2.
+    'frontAxleM', 1.2, ...         % m, CG to front axle.
+    'rearAxleM', 1.5, ...          % m, CG to rear axle.
+    'frontCorneringStiffnessNPerRad', 80000.0, ... % N/rad.
+    'rearCorneringStiffnessNPerRad', 80000.0, ...  % N/rad.
+    'dynamicMinSpeedMps', 1.0, ...  % m/s, below which kinematics are used.
+    'dynamicLowSpeedRelaxationS', 0.2); % s.
+
+cfg.vehicleModel = 'kinematic';    % kinematic or dynamic.
 
 cfg.controller = struct( ...
     'speedKp', 1.0, ...
     'speedKi', 0.1, ...
+    'speedKd', 0.0, ...
+    'speedIntegralLimitMps2', 3.0, ...
+    'speedPreviewS', 0.5, ...      % s, preview for speed and accel targets.
+    'longitudinalOutput', 'acceleration', ... % acceleration or pedal.
+    'lateralMethod', 'purePursuit', ... % purePursuit or stanley.
+    'lookaheadMinM', 2.0, ...      % m.
+    'lookaheadMaxM', 12.0, ...     % m.
+    'lookaheadTimeS', 0.8, ...     % s.
+    'stanleyGain', 1.5, ...
+    'stanleySofteningMps', 0.5, ...% m/s.
+    'curvatureFeedforwardGain', 0.15, ...
     'lateralKp', 1.5, ...
     'headingKp', 1.0);
+
+cfg.simDt = 0.05;                  % s, vehicle simulation step.
+cfg.vehicleDemo = struct( ...
+    'durationS', 24.0, ...         % s.
+    'speedTimesS', [0 2 6 8 10 12 18 20 24], ... % s.
+    'speedValuesMps', [0 5 5 0 0 5 5 0 0], ... % m/s.
+    'laneChangeDistanceM', [4 14 17 32 35 50], ... % m, lateral transition bounds.
+    'laneChangeOffsetsM', [3 -6 3], ... % m, left-positive offsets.
+    'crossTrackToleranceM', 1.0);   % m.
 
 cfg.adaptive = struct( ...
     'cautiousRiskThreshold', 0.05, ...
@@ -218,7 +251,7 @@ cfg.decisionModes = struct( ...
     'cautious', 2, ...
     'emergency', 3);
 cfg.simulation = struct( ...
-    'dt', 0.05, ...                % s.
+    'dt', cfg.simDt, ...           % s.
     'duration', 60.0);             % s.
 cfg.world = struct( ...
     'maxRoadVertices', 32, ...
